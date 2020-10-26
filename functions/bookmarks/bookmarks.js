@@ -10,13 +10,12 @@ type Query {
 }
 
 type Bookmark {
-  id: ID!
   url: String!
   desc: String!
 }
 
 type Mutation {
-  addBookmark : Bookmark
+  addBookmark(url: String!, desc: String!) : Bookmark
 }
 `
 
@@ -29,28 +28,45 @@ const authors = [
 const resolvers = {
   Query: {
     bookmark: async () => {
-      return authors
-      // const client = await faunadb.Client({ secret: process.env.FAUNADB_SERVER_SECRET })
+      const client = new faunadb.Client({ secret: process.env.FAUNADB_SERVER_SECRET })
 
-      // try{
-      //   const result = client.query(
-      //     q.Create(q.Ref(q.Collection('links'), authors))
-      //   )
-      //   // console.log("Document Created and Inserted in Container: " + result.ref.id);
-      // } catch(err) {
-      //   console.log(err)
-      // }
+      try{
+        const result = await client.query(
+          q.Map(
+            q.Paginate(q.Match(q.Index('url'))),
+            q.Lambda(x => q.Get(x))
+            )
+        )
+            return result.data.map((d) => {
+              return {
+                // id: d.ts,
+                url: d.data.url,
+                // desc: d.desc
+              }
+            } )
+      } catch(err) {
+        console.log(err)
+      }
     },
   },
   Mutation: {
-    addBookmark: async () => {
-      const client = await faunadb.Client({ secret: process.env.FAUNADB_SERVER_SECRET })
+    addBookmark: async (_,{ url, desc }) => {
+      console.log('server url', url)
 
+      const client = new faunadb.Client({ secret: process.env.FAUNADB_SERVER_SECRET })
       try{
-        const result = client.query(
-          q.Create(q.Ref(q.Collection('links'), authors))
+        const result = await client.query(
+          q.Create(
+            q.Collection('links'),
+            { data: { 
+              url, 
+              desc
+             } 
+            },
+          )
         )
-        console.log("Document Created and Inserted in Container: " + result.ref.id);
+        console.log(result.data)
+        // console.log("Document Created and Inserted in Container: " + result.ref.id);
       } catch(err) {
         console.log(err)
       }
